@@ -27,10 +27,10 @@ def test_actuators(model, data):
 
     # OpenArm 7-DOF rest pose (elbows bent ~57°)
     rest_targets = {
-        "l_j1": 0.0, "l_j2": -0.4, "l_j3": 0.0, "l_j4": 1.0,
-        "l_j5": 0.0, "l_j6": 0.0,  "l_j7": 0.0,
-        "r_j1": 0.0, "r_j2": -0.4, "r_j3": 0.0, "r_j4": 1.0,
-        "r_j5": 0.0, "r_j6": 0.0,  "r_j7": 0.0,
+        "l_j1": 0.0, "l_j2":  0.0, "l_j3": 0.0, "l_j4": 1.0,
+        "l_j5": 0.0, "l_j6":  0.0, "l_j7": 0.0,
+        "r_j1": 0.0, "r_j2":  0.0, "r_j3": 0.0, "r_j4": 1.0,
+        "r_j5": 0.0, "r_j6":  0.0, "r_j7": 0.0,
     }
 
     for name, target in rest_targets.items():
