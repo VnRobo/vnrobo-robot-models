@@ -25,12 +25,12 @@ def test_actuators(model, data):
     """Set each actuator to mid-range, step 100 times, check stability."""
     mujoco.mj_resetData(model, data)
 
-    # Arms to a natural rest pose (elbows slightly bent)
-    arm_joints = ["l_sp", "l_sr", "l_sy", "l_ep", "l_wp", "l_wr",
-                  "r_sp", "r_sr", "r_sy", "r_ep", "r_wp", "r_wr"]
+    # OpenArm 7-DOF rest pose (elbows bent ~57°)
     rest_targets = {
-        "l_sp": -0.3, "l_sr": -0.2, "l_sy": 0.0, "l_ep": -1.0, "l_wp": 0.0, "l_wr": 0.0,
-        "r_sp": -0.3, "r_sr":  0.2, "r_sy": 0.0, "r_ep":  1.0, "r_wp": 0.0, "r_wr": 0.0,
+        "l_j1": 0.0, "l_j2": -0.4, "l_j3": 0.0, "l_j4": 1.0,
+        "l_j5": 0.0, "l_j6": 0.0,  "l_j7": 0.0,
+        "r_j1": 0.0, "r_j2": -0.4, "r_j3": 0.0, "r_j4": 1.0,
+        "r_j5": 0.0, "r_j6": 0.0,  "r_j7": 0.0,
     }
 
     for name, target in rest_targets.items():

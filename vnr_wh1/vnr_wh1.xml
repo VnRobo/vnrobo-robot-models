@@ -1,14 +1,14 @@
 <!-- VNR-WH1 — VnRobo Wheeled Humanoid 1
-     Version: 0.2.0-primitive
-     DOF: 18 controllable (3 wheels + 2 head + 6L arm + 6R arm + 2 grippers)
-     Mass: ~58 kg  |  Height: ~1.35 m
-     v0.2 changes:
-       - Wider shoulders (±0.24 m), upper arm 0.30 m, forearm 0.28 m
-       - Wheel geom zaxis matches each joint spin axis
-       - QDD-style dark cylindrical motor housings at all 6 arm joints
-       - Parallel-jaw gripper (flat box plates) replacing finger capsules
-       - Head gap fixed (head_pan_link z=0.34)
-       - Hub accent rings on wheels
+     Version: 0.3.0-primitive
+     DOF: 21 controllable (3 wheels + 2 head + 7L arm + 7R arm + 2 grippers)
+     Mass: ~60 kg  |  Height: ~1.35 m
+     v0.3: Arms replaced with OpenArm v10 7-DOF kinematic chain
+       - Exact joint offsets from enactic/openarm_description config/arm/v10/kinematics.yaml
+       - Joint axes from URDF: Z-X-Z-Y-Z-X-Y (J1-J7)
+       - Flat QDD disc housings at each joint (alternating orientations)
+       - Capsule tube links between discs
+       - Parallel-jaw gripper (flat box plates)
+       - Left arm mirrors Right arm in X
 -->
 <mujoco model="vnr_wh1">
 
@@ -42,8 +42,8 @@
     </default>
 
     <default class="gripper">
-      <joint type="slide" damping="10" armature="0.002" limited="true" range="0 0.045"/>
-      <position kp="300" kv="20" ctrlrange="0 0.045"/>
+      <joint type="slide" damping="10" armature="0.002" limited="true" range="0 0.043"/>
+      <position kp="300" kv="20" ctrlrange="0 0.043"/>
     </default>
   </default>
 
@@ -55,16 +55,16 @@
              width="512" height="512"/>
     <material name="floor_mat" texture="grid" texrepeat="4 4" reflectance="0.2"/>
     <material name="body_mat" rgba="0.95 0.62 0.10 1"/>   <!-- VnRobo amber -->
-    <material name="dark_mat" rgba="0.15 0.15 0.15 1"/>   <!-- chassis / motor housing -->
-    <material name="grey_mat" rgba="0.78 0.78 0.80 1"/>   <!-- arm links aluminium -->
+    <material name="dark_mat" rgba="0.15 0.15 0.15 1"/>   <!-- chassis / QDD disc -->
+    <material name="grey_mat" rgba="0.78 0.78 0.80 1"/>   <!-- link tubes aluminium -->
   </asset>
 
   <!-- =============================================================== -->
   <!-- WORLD                                                            -->
   <!-- =============================================================== -->
   <worldbody>
-    <light name="sky"  pos="0 0 5"   dir="0 0 -1"    diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" castshadow="false"/>
-    <light name="fill" pos="2 -2 3"  dir="-1 1 -1"   diffuse="0.3 0.3 0.4" specular="0 0 0"       castshadow="false"/>
+    <light name="sky"  pos="0 0 5"  dir="0 0 -1"  diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" castshadow="false"/>
+    <light name="fill" pos="2 -2 3" dir="-1 1 -1" diffuse="0.3 0.3 0.4" specular="0 0 0"       castshadow="false"/>
     <geom name="floor" type="plane" size="8 8 0.1" material="floor_mat" condim="3"/>
 
     <!-- ======================== BASE PLATFORM ======================== -->
@@ -75,32 +75,25 @@
       <site name="imu" pos="0 0 0" size="0.01"/>
 
       <!-- ==================== WHEELS (3× omni) ==================== -->
-      <!-- Front wheel — spins around X -->
       <body name="wheel_f" pos="0 0.22 -0.12">
         <joint name="wheel_f" class="wheel" axis="1 0 0"/>
         <geom name="wheel_f_geom" type="cylinder" size="0.080 0.040" zaxis="1 0 0"
               material="dark_mat" mass="0.8" friction="2 0.01 0.001"/>
-        <!-- Hub accent (amber ring, inset 1 mm from tire face) -->
-        <geom type="cylinder" size="0.055 0.039" zaxis="1 0 0"
-              material="body_mat" mass="0"/>
+        <geom type="cylinder" size="0.055 0.039" zaxis="1 0 0" material="body_mat" mass="0"/>
       </body>
 
-      <!-- Back-left — spins around (-0.5, 0.866, 0) -->
       <body name="wheel_bl" pos="-0.19 -0.11 -0.12">
         <joint name="wheel_bl" class="wheel" axis="-0.5 0.866 0"/>
         <geom name="wheel_bl_geom" type="cylinder" size="0.080 0.040" zaxis="-0.5 0.866 0"
               material="dark_mat" mass="0.8" friction="2 0.01 0.001"/>
-        <geom type="cylinder" size="0.055 0.039" zaxis="-0.5 0.866 0"
-              material="body_mat" mass="0"/>
+        <geom type="cylinder" size="0.055 0.039" zaxis="-0.5 0.866 0" material="body_mat" mass="0"/>
       </body>
 
-      <!-- Back-right — spins around (0.5, 0.866, 0) -->
       <body name="wheel_br" pos="0.19 -0.11 -0.12">
         <joint name="wheel_br" class="wheel" axis="0.5 0.866 0"/>
         <geom name="wheel_br_geom" type="cylinder" size="0.080 0.040" zaxis="0.5 0.866 0"
               material="dark_mat" mass="0.8" friction="2 0.01 0.001"/>
-        <geom type="cylinder" size="0.055 0.039" zaxis="0.5 0.866 0"
-              material="body_mat" mass="0"/>
+        <geom type="cylinder" size="0.055 0.039" zaxis="0.5 0.866 0" material="body_mat" mass="0"/>
       </body>
 
       <!-- ==================== TORSO ==================== -->
@@ -116,12 +109,9 @@
                 pos="0 -0.13 0.12" rgba="0.3 0.3 0.3 1" mass="0"/>
 
           <!-- ==================== HEAD ==================== -->
-          <!-- Chest top is at z=0.32; head_pan_link at z=0.34 (2 mm neck gap) -->
           <body name="head_pan_link" pos="0 0 0.34">
             <joint name="head_pan" class="head" axis="0 0 1" range="-1.57 1.57"/>
-            <!-- Pan motor housing (Z-axis cylinder = neck turret) -->
             <geom type="cylinder" size="0.042 0.040" material="dark_mat" mass="0.2"/>
-
             <body name="head" pos="0 0 0.06">
               <joint name="head_tilt" class="head" axis="0 1 0" range="-0.52 0.52"/>
               <geom name="head_geom" type="box" size="0.11 0.09 0.12"
@@ -133,77 +123,88 @@
             </body>
           </body>
 
-          <!-- ========================= LEFT ARM ========================= -->
-          <!-- Shoulder at x=-0.24 (Panda-like width) -->
+          <!-- =======================================================
+               LEFT ARM — OpenArm v10 7-DOF
+               Joint offsets from enactic/openarm_description kinematics.yaml
+               Z offsets negated (arm hangs down from shoulder mount).
+               X offsets kept as-is (left arm = OpenArm right convention).
+               Axes: J1=Z  J2=−X  J3=Z  J4=Y  J5=Z  J6=X  J7=Y
+               ======================================================= -->
           <body name="l_shoulder" pos="-0.24 0 0.24">
-            <joint name="l_sp" class="arm" axis="0 1 0" range="-3.14 1.57"/>
-            <!-- Shoulder pitch QDD housing (Y-axis) -->
-            <geom type="cylinder" size="0.048 0.026" zaxis="0 1 0"
-                  material="dark_mat" mass="0.4"/>
 
-            <!-- Upper arm — shoulder roll -->
-            <body name="l_uarm" pos="0 0 -0.06">
-              <joint name="l_sr" class="arm" axis="1 0 0" range="-1.57 1.57"/>
-              <!-- Shoulder roll housing (X-axis) at joint origin -->
-              <geom type="cylinder" size="0.044 0.024" zaxis="1 0 0"
-                    material="dark_mat" mass="0"/>
-              <!-- Upper arm link: 0.30 m -->
-              <geom name="l_uarm_geom" type="capsule" fromto="0 0 0 0 0 -0.30"
-                    size="0.036" material="grey_mat" mass="1.4"/>
+            <!-- J1: shoulder pan (Z) -->
+            <joint name="l_j1" class="arm" axis="0 0 1" range="-2.79 2.79"/>
+            <geom type="cylinder" size="0.046 0.024" material="dark_mat" mass="0.6"/>
+            <!-- stub tube to J2 -->
+            <geom type="capsule" fromto="0 0 0 0 0 -0.0625" size="0.020" material="grey_mat" mass="0"/>
 
-              <!-- Elbow yaw (twist) -->
-              <body name="l_elbow_link" pos="0 0 -0.30">
-                <joint name="l_sy" class="arm" axis="0 0 1" range="-1.57 1.57"/>
-                <!-- Elbow yaw housing (Z-axis, cylinder default) -->
-                <geom type="cylinder" size="0.038 0.022"
-                      material="dark_mat" mass="0.15"/>
+            <!-- J2 body: x=-0.0301, z=-0.06 from J1 -->
+            <body name="l_j2" pos="0 0 -0.0625">
+              <!-- J2: shoulder tilt (−X) -->
+              <joint name="l_j2" class="arm" axis="-1 0 0" range="-1.745 1.745"/>
+              <geom type="cylinder" size="0.044 0.022" zaxis="1 0 0" material="dark_mat" mass="0.6"/>
+              <!-- stub tube to J3 -->
+              <geom type="capsule" fromto="0 0 0 -0.0301 0 -0.060" size="0.020" material="grey_mat" mass="0"/>
 
-                <!-- Forearm — elbow pitch -->
-                <body name="l_farm" pos="0 0 -0.02">
-                  <joint name="l_ep" class="arm" axis="0 1 0" range="-2.36 0"/>
-                  <!-- Elbow pitch housing (Y-axis) -->
-                  <geom type="cylinder" size="0.038 0.022" zaxis="0 1 0"
-                        material="dark_mat" mass="0"/>
-                  <!-- Forearm link: 0.28 m -->
-                  <geom name="l_farm_geom" type="capsule" fromto="0 0 0 0 0 -0.28"
-                        size="0.030" material="grey_mat" mass="1.1"/>
+              <!-- J3 body: x=−0.0301, z=−0.06 from J2 -->
+              <body name="l_j3" pos="-0.0301 0 -0.060">
+                <!-- J3: shoulder twist (Z) -->
+                <joint name="l_j3" class="arm" axis="0 0 1" range="-1.571 1.571"/>
+                <geom type="cylinder" size="0.040 0.020" material="dark_mat" mass="0.4"/>
+                <!-- stub tube to J4 -->
+                <geom type="capsule" fromto="0 0 0 0.0301 0 -0.06625" size="0.020" material="grey_mat" mass="0"/>
 
-                  <!-- Wrist pitch -->
-                  <body name="l_wrist_link" pos="0 0 -0.28">
-                    <joint name="l_wp" class="arm" axis="0 1 0" range="-1.57 1.57"/>
-                    <!-- Wrist pitch housing (Y-axis) -->
-                    <geom type="cylinder" size="0.034 0.020" zaxis="0 1 0"
-                          material="dark_mat" mass="0.10"/>
+                <!-- J4 body (elbow): x=+0.0301, y=+0.0315, z=−0.15375 from J3 -->
+                <body name="l_j4" pos="0.0301 0 -0.06625">
+                  <!-- J4: elbow bend (Y) — range 0..140° -->
+                  <joint name="l_j4" class="arm" axis="0 1 0" range="0 2.443"/>
+                  <geom type="cylinder" size="0.040 0.020" zaxis="0 1 0" material="dark_mat" mass="0.4"/>
+                  <!-- upper arm tube → J5 -->
+                  <geom type="capsule" fromto="0 0 0 0 0.0315 -0.15375" size="0.022" material="grey_mat" mass="0.5"/>
 
-                    <!-- Hand — wrist roll -->
-                    <body name="l_hand" pos="0 0 -0.02">
-                      <joint name="l_wr" class="arm" axis="0 0 1" range="-1.57 1.57"/>
-                      <!-- Wrist roll housing (Z-axis) -->
-                      <geom type="cylinder" size="0.032 0.018"
-                            material="dark_mat" mass="0"/>
-                      <!-- Palm block -->
-                      <geom name="l_hand_geom" type="box" size="0.034 0.022 0.048"
-                            pos="0 0 -0.032" material="grey_mat" mass="0.4"/>
-                      <site name="l_tcp" pos="0 0 -0.11" size="0.01" rgba="0 1 0 1"/>
+                  <!-- J5 body (forearm): y=+0.0315, z=−0.15375 from J4 -->
+                  <body name="l_j5" pos="0 0.0315 -0.15375">
+                    <!-- J5: forearm twist (Z) -->
+                    <joint name="l_j5" class="arm" axis="0 0 1" range="-1.571 1.571"/>
+                    <geom type="cylinder" size="0.034 0.018" material="dark_mat" mass="0.3"/>
+                    <!-- elbow tube → J6 -->
+                    <geom type="capsule" fromto="0 0 0 0 -0.0315 -0.0955" size="0.018" material="grey_mat" mass="0.3"/>
 
-                      <!-- ===== Left parallel-jaw gripper ===== -->
-                      <!-- Left jaw slides in -X to open -->
-                      <body name="l_fl" pos="-0.025 0 -0.065">
-                        <joint name="l_gl" class="gripper" axis="1 0 0"/>
-                        <!-- Jaw plate (dark) -->
-                        <geom type="box" size="0.009 0.020 0.028"
-                              pos="-0.005 0 -0.016" material="dark_mat" mass="0.07"/>
-                        <!-- Finger-pad tip (amber) -->
-                        <geom type="box" size="0.006 0.016 0.006"
-                              pos="-0.002 0 -0.046" material="body_mat" mass="0.01"/>
-                      </body>
-                      <!-- Right jaw slides in +X to open -->
-                      <body name="l_fr" pos="0.025 0 -0.065">
-                        <joint name="l_gr" class="gripper" axis="-1 0 0"/>
-                        <geom type="box" size="0.009 0.020 0.028"
-                              pos="0.005 0 -0.016" material="dark_mat" mass="0.07"/>
-                        <geom type="box" size="0.006 0.016 0.006"
-                              pos="0.002 0 -0.046" material="body_mat" mass="0.01"/>
+                    <!-- J6 body (wrist): y=−0.0315, z=−0.0955 from J5 -->
+                    <body name="l_j6" pos="0 -0.0315 -0.0955">
+                      <!-- J6: wrist pitch (X) -->
+                      <joint name="l_j6" class="arm" axis="1 0 0" range="-0.785 0.785"/>
+                      <geom type="cylinder" size="0.032 0.016" zaxis="1 0 0" material="dark_mat" mass="0.2"/>
+                      <!-- forearm tube → J7 -->
+                      <geom type="capsule" fromto="0 0 0 0.0375 0 -0.1205" size="0.016" material="grey_mat" mass="0.4"/>
+
+                      <!-- J7 body (wrist roll): x=+0.0375, z=−0.1205 from J6 -->
+                      <body name="l_j7" pos="0.0375 0 -0.1205">
+                        <!-- J7: wrist roll (Y) -->
+                        <joint name="l_j7" class="arm" axis="0 1 0" range="-1.571 1.571"/>
+                        <geom type="cylinder" size="0.028 0.014" zaxis="0 1 0" material="dark_mat" mass="0.15"/>
+
+                        <!-- Hand + parallel-jaw gripper -->
+                        <body name="l_hand" pos="-0.0375 0 -0.020">
+                          <geom name="l_hand_geom" type="box" size="0.032 0.020 0.040"
+                                pos="0 0 -0.028" material="grey_mat" mass="0.3"/>
+                          <site name="l_tcp" pos="0 0 -0.095" size="0.01" rgba="0 1 0 1"/>
+
+                          <body name="l_fl" pos="-0.022 0 -0.056">
+                            <joint name="l_gl" class="gripper" axis="1 0 0"/>
+                            <geom type="box" size="0.008 0.018 0.026" pos="-0.004 0 -0.014"
+                                  material="dark_mat" mass="0.06"/>
+                            <geom type="box" size="0.005 0.014 0.005" pos="-0.002 0 -0.042"
+                                  material="body_mat" mass="0.01"/>
+                          </body>
+                          <body name="l_fr" pos="0.022 0 -0.056">
+                            <joint name="l_gr" class="gripper" axis="-1 0 0"/>
+                            <geom type="box" size="0.008 0.018 0.026" pos="0.004 0 -0.014"
+                                  material="dark_mat" mass="0.06"/>
+                            <geom type="box" size="0.005 0.014 0.005" pos="0.002 0 -0.042"
+                                  material="body_mat" mass="0.01"/>
+                          </body>
+                        </body>
                       </body>
                     </body>
                   </body>
@@ -212,58 +213,65 @@
             </body>
           </body>
 
-          <!-- ========================= RIGHT ARM (mirror) ========================= -->
+          <!-- =======================================================
+               RIGHT ARM — mirror of left (X offsets negated)
+               Axes: J1=Z  J2=+X  J3=Z  J4=Y  J5=Z  J6=−X  J7=Y
+               ======================================================= -->
           <body name="r_shoulder" pos="0.24 0 0.24">
-            <joint name="r_sp" class="arm" axis="0 1 0" range="-3.14 1.57"/>
-            <geom type="cylinder" size="0.048 0.026" zaxis="0 1 0"
-                  material="dark_mat" mass="0.4"/>
 
-            <body name="r_uarm" pos="0 0 -0.06">
-              <joint name="r_sr" class="arm" axis="1 0 0" range="-1.57 1.57"/>
-              <geom type="cylinder" size="0.044 0.024" zaxis="1 0 0"
-                    material="dark_mat" mass="0"/>
-              <geom name="r_uarm_geom" type="capsule" fromto="0 0 0 0 0 -0.30"
-                    size="0.036" material="grey_mat" mass="1.4"/>
+            <joint name="r_j1" class="arm" axis="0 0 1" range="-2.79 2.79"/>
+            <geom type="cylinder" size="0.046 0.024" material="dark_mat" mass="0.6"/>
+            <geom type="capsule" fromto="0 0 0 0 0 -0.0625" size="0.020" material="grey_mat" mass="0"/>
 
-              <body name="r_elbow_link" pos="0 0 -0.30">
-                <joint name="r_sy" class="arm" axis="0 0 1" range="-1.57 1.57"/>
-                <geom type="cylinder" size="0.038 0.022"
-                      material="dark_mat" mass="0.15"/>
+            <body name="r_j2" pos="0 0 -0.0625">
+              <joint name="r_j2" class="arm" axis="1 0 0" range="-1.745 1.745"/>
+              <geom type="cylinder" size="0.044 0.022" zaxis="1 0 0" material="dark_mat" mass="0.6"/>
+              <geom type="capsule" fromto="0 0 0 0.0301 0 -0.060" size="0.020" material="grey_mat" mass="0"/>
 
-                <body name="r_farm" pos="0 0 -0.02">
-                  <joint name="r_ep" class="arm" axis="0 1 0" range="0 2.36"/>
-                  <geom type="cylinder" size="0.038 0.022" zaxis="0 1 0"
-                        material="dark_mat" mass="0"/>
-                  <geom name="r_farm_geom" type="capsule" fromto="0 0 0 0 0 -0.28"
-                        size="0.030" material="grey_mat" mass="1.1"/>
+              <body name="r_j3" pos="0.0301 0 -0.060">
+                <joint name="r_j3" class="arm" axis="0 0 1" range="-1.571 1.571"/>
+                <geom type="cylinder" size="0.040 0.020" material="dark_mat" mass="0.4"/>
+                <geom type="capsule" fromto="0 0 0 -0.0301 0 -0.06625" size="0.020" material="grey_mat" mass="0"/>
 
-                  <body name="r_wrist_link" pos="0 0 -0.28">
-                    <joint name="r_wp" class="arm" axis="0 1 0" range="-1.57 1.57"/>
-                    <geom type="cylinder" size="0.034 0.020" zaxis="0 1 0"
-                          material="dark_mat" mass="0.10"/>
+                <body name="r_j4" pos="-0.0301 0 -0.06625">
+                  <joint name="r_j4" class="arm" axis="0 1 0" range="0 2.443"/>
+                  <geom type="cylinder" size="0.040 0.020" zaxis="0 1 0" material="dark_mat" mass="0.4"/>
+                  <geom type="capsule" fromto="0 0 0 0 0.0315 -0.15375" size="0.022" material="grey_mat" mass="0.5"/>
 
-                    <body name="r_hand" pos="0 0 -0.02">
-                      <joint name="r_wr" class="arm" axis="0 0 1" range="-1.57 1.57"/>
-                      <geom type="cylinder" size="0.032 0.018"
-                            material="dark_mat" mass="0"/>
-                      <geom name="r_hand_geom" type="box" size="0.034 0.022 0.048"
-                            pos="0 0 -0.032" material="grey_mat" mass="0.4"/>
-                      <site name="r_tcp" pos="0 0 -0.11" size="0.01" rgba="0 1 0 1"/>
+                  <body name="r_j5" pos="0 0.0315 -0.15375">
+                    <joint name="r_j5" class="arm" axis="0 0 1" range="-1.571 1.571"/>
+                    <geom type="cylinder" size="0.034 0.018" material="dark_mat" mass="0.3"/>
+                    <geom type="capsule" fromto="0 0 0 0 -0.0315 -0.0955" size="0.018" material="grey_mat" mass="0.3"/>
 
-                      <!-- ===== Right parallel-jaw gripper ===== -->
-                      <body name="r_fl" pos="-0.025 0 -0.065">
-                        <joint name="r_gl" class="gripper" axis="1 0 0"/>
-                        <geom type="box" size="0.009 0.020 0.028"
-                              pos="-0.005 0 -0.016" material="dark_mat" mass="0.07"/>
-                        <geom type="box" size="0.006 0.016 0.006"
-                              pos="-0.002 0 -0.046" material="body_mat" mass="0.01"/>
-                      </body>
-                      <body name="r_fr" pos="0.025 0 -0.065">
-                        <joint name="r_gr" class="gripper" axis="-1 0 0"/>
-                        <geom type="box" size="0.009 0.020 0.028"
-                              pos="0.005 0 -0.016" material="dark_mat" mass="0.07"/>
-                        <geom type="box" size="0.006 0.016 0.006"
-                              pos="0.002 0 -0.046" material="body_mat" mass="0.01"/>
+                    <body name="r_j6" pos="0 -0.0315 -0.0955">
+                      <joint name="r_j6" class="arm" axis="-1 0 0" range="-0.785 0.785"/>
+                      <geom type="cylinder" size="0.032 0.016" zaxis="1 0 0" material="dark_mat" mass="0.2"/>
+                      <geom type="capsule" fromto="0 0 0 -0.0375 0 -0.1205" size="0.016" material="grey_mat" mass="0.4"/>
+
+                      <body name="r_j7" pos="-0.0375 0 -0.1205">
+                        <joint name="r_j7" class="arm" axis="0 1 0" range="-1.571 1.571"/>
+                        <geom type="cylinder" size="0.028 0.014" zaxis="0 1 0" material="dark_mat" mass="0.15"/>
+
+                        <body name="r_hand" pos="0.0375 0 -0.020">
+                          <geom name="r_hand_geom" type="box" size="0.032 0.020 0.040"
+                                pos="0 0 -0.028" material="grey_mat" mass="0.3"/>
+                          <site name="r_tcp" pos="0 0 -0.095" size="0.01" rgba="0 1 0 1"/>
+
+                          <body name="r_fl" pos="-0.022 0 -0.056">
+                            <joint name="r_gl" class="gripper" axis="1 0 0"/>
+                            <geom type="box" size="0.008 0.018 0.026" pos="-0.004 0 -0.014"
+                                  material="dark_mat" mass="0.06"/>
+                            <geom type="box" size="0.005 0.014 0.005" pos="-0.002 0 -0.042"
+                                  material="body_mat" mass="0.01"/>
+                          </body>
+                          <body name="r_fr" pos="0.022 0 -0.056">
+                            <joint name="r_gr" class="gripper" axis="-1 0 0"/>
+                            <geom type="box" size="0.008 0.018 0.026" pos="0.004 0 -0.014"
+                                  material="dark_mat" mass="0.06"/>
+                            <geom type="box" size="0.005 0.014 0.005" pos="0.002 0 -0.042"
+                                  material="body_mat" mass="0.01"/>
+                          </body>
+                        </body>
                       </body>
                     </body>
                   </body>
@@ -278,7 +286,7 @@
   </worldbody>
 
   <!-- =============================================================== -->
-  <!-- EQUALITY CONSTRAINTS (coupled gripper fingers)                  -->
+  <!-- EQUALITY CONSTRAINTS                                             -->
   <!-- =============================================================== -->
   <equality>
     <joint name="l_gripper_couple" joint1="l_gl" joint2="l_gr" polycoef="0 1 0 0 0"/>
@@ -289,31 +297,33 @@
   <!-- ACTUATORS                                                        -->
   <!-- =============================================================== -->
   <actuator>
-    <!-- WHEELS: velocity control (rad/s) -->
+    <!-- WHEELS -->
     <velocity name="wheel_f"  joint="wheel_f"  class="wheel"/>
     <velocity name="wheel_bl" joint="wheel_bl" class="wheel"/>
     <velocity name="wheel_br" joint="wheel_br" class="wheel"/>
 
-    <!-- HEAD: position control (rad) -->
+    <!-- HEAD -->
     <position name="head_pan"  joint="head_pan"  class="head" ctrlrange="-1.57 1.57"/>
     <position name="head_tilt" joint="head_tilt" class="head" ctrlrange="-0.52 0.52"/>
 
-    <!-- LEFT ARM -->
-    <position name="l_sp" joint="l_sp" class="arm" ctrlrange="-3.14 1.57"/>
-    <position name="l_sr" joint="l_sr" class="arm" ctrlrange="-1.57 1.57"/>
-    <position name="l_sy" joint="l_sy" class="arm" ctrlrange="-1.57 1.57"/>
-    <position name="l_ep" joint="l_ep" class="arm" ctrlrange="-2.36 0"/>
-    <position name="l_wp" joint="l_wp" class="arm" ctrlrange="-1.57 1.57"/>
-    <position name="l_wr" joint="l_wr" class="arm" ctrlrange="-1.57 1.57"/>
+    <!-- LEFT ARM — OpenArm 7-DOF -->
+    <position name="l_j1" joint="l_j1" class="arm" ctrlrange="-2.79 2.79"/>
+    <position name="l_j2" joint="l_j2" class="arm" ctrlrange="-1.745 1.745"/>
+    <position name="l_j3" joint="l_j3" class="arm" ctrlrange="-1.571 1.571"/>
+    <position name="l_j4" joint="l_j4" class="arm" ctrlrange="0 2.443"/>
+    <position name="l_j5" joint="l_j5" class="arm" ctrlrange="-1.571 1.571"/>
+    <position name="l_j6" joint="l_j6" class="arm" ctrlrange="-0.785 0.785"/>
+    <position name="l_j7" joint="l_j7" class="arm" ctrlrange="-1.571 1.571"/>
     <position name="l_grip" joint="l_gl" class="gripper"/>
 
-    <!-- RIGHT ARM -->
-    <position name="r_sp" joint="r_sp" class="arm" ctrlrange="-3.14 1.57"/>
-    <position name="r_sr" joint="r_sr" class="arm" ctrlrange="-1.57 1.57"/>
-    <position name="r_sy" joint="r_sy" class="arm" ctrlrange="-1.57 1.57"/>
-    <position name="r_ep" joint="r_ep" class="arm" ctrlrange="0 2.36"/>
-    <position name="r_wp" joint="r_wp" class="arm" ctrlrange="-1.57 1.57"/>
-    <position name="r_wr" joint="r_wr" class="arm" ctrlrange="-1.57 1.57"/>
+    <!-- RIGHT ARM — OpenArm 7-DOF (mirror) -->
+    <position name="r_j1" joint="r_j1" class="arm" ctrlrange="-2.79 2.79"/>
+    <position name="r_j2" joint="r_j2" class="arm" ctrlrange="-1.745 1.745"/>
+    <position name="r_j3" joint="r_j3" class="arm" ctrlrange="-1.571 1.571"/>
+    <position name="r_j4" joint="r_j4" class="arm" ctrlrange="0 2.443"/>
+    <position name="r_j5" joint="r_j5" class="arm" ctrlrange="-1.571 1.571"/>
+    <position name="r_j6" joint="r_j6" class="arm" ctrlrange="-0.785 0.785"/>
+    <position name="r_j7" joint="r_j7" class="arm" ctrlrange="-1.571 1.571"/>
     <position name="r_grip" joint="r_gl" class="gripper"/>
   </actuator>
 
