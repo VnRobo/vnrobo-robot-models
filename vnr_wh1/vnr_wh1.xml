@@ -1,23 +1,29 @@
 <!-- VNR-WH1 — VnRobo Wheeled Humanoid 1
-     Version: 1.0.0-clean
+     Version: 1.1.0-shoulder
      DOF: 19 (3 wheels + 7L + 7R + 2 grippers)
 
-     v1.0 — clean silhouette (supersedes v0.9):
-       - Removed torso_chest + torso_accent (chunky matte-black pedestal +
-         orange stripe above the waist ring — looked like a bolt-on chest plate).
-       - Hid ALL native OpenArm body_link0 meshes (body_v0..v5 → group=4). They
-         carried a triangular shoulder bracket and bolt-hole fascia that read
-         as "extra steel plates" on a clean humanoid design.
-       - torso_column extended down to world z=0.33 so it rises directly from
-         the orange brand band — no intermediate pedestal, just a slim 0.10 ×
-         0.08 m pillar from base to shoulders.
-       - head_cam, torso_band, arms unchanged — proven from v0.9.
+     v1.1 — keep shoulder bridge, relocate head_cam (supersedes v1.0):
+       - body_v5 (native OpenArm shoulder bridge at world z≈1.24) is VISIBLE
+         again — it's the branded "yoke" between the two arm mounts, the
+         piece the user explicitly asked to keep (Screenshot 13-09-46).
+       - body_v0..v4 remain hidden (group=4) — hip/waist fasteners and
+         internal backbone tube, superseded by torso_column.
+       - head_cam relocated from hip level (world z=0.57, local frame of
+         body_v4 fascia) UP to the shoulder bridge (world z≈1.23, tucked
+         against body_v5 forward face). Previous hip position caused the
+         camera housing to float free in the side profile — visible as a
+         "thừa" (extra) cylinder not attached to any body.
+       - Added invariant tests: body_v5 must be VISIBLE, body_v0..v4 must
+         be HIDDEN, head_cam world z must be in [1.15, 1.30] (head band),
+         and head_cam housing must lie within 0.05 m of the body_v5 world
+         AABB (catches "floating camera" regressions).
 
      Stack, world z:
        0.00–0.30   wheeled base (cylinder r=0.30)
        0.30–0.33   waist collar disc  (r=0.205)
        0.33–0.35   waist accent ring  (r=0.215, orange — brand band)
        0.33–1.25   torso_column       (0.10 × 0.08 × 0.92 slim pillar)
+       1.15–1.33   body_v5 shoulder bridge (native OpenArm mesh)
        1.22–1.24   torso_band         (orange accent at shoulder line)
        1.25        shoulder (arms emerge from body_link0 at local z=0.698)
 -->
@@ -218,16 +224,19 @@
         <inertial pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" mass="13.89"
                   diaginertia="1.653 1.653 0.051"/>
         <geom type="mesh" mesh="body_col" class="collision"/>
-        <!-- v1.0: all native OpenArm body_link0 visual meshes are hidden
-             (group=4). They carried the triangular shoulder bracket, bolt-hole
-             fascia, and internal backbone — all superseded by our clean
-             torso_column + head_cam primitives below.                     -->
+        <!-- v1.1 visibility contract:
+             HIDDEN (group=4): body_v0..v4 — hip/waist housings and the
+               internal backbone tube. Clutter on a clean humanoid.
+             VISIBLE: body_v5 — the native OpenArm shoulder-bridge yoke
+               that spans the two arm mounts at world z≈1.24. Carries the
+               OpenArm branding and is the visual joint connector the
+               user explicitly asked to keep (Screenshot 13-09-46).      -->
         <geom type="mesh" material="matte_black"  mesh="body_v0" class="visual" group="4"/>
         <geom type="mesh" material="matte_black"  mesh="body_v1" class="visual" group="4"/>
         <geom type="mesh" material="matte_black"  mesh="body_v2" class="visual" group="4"/>
         <geom type="mesh" material="matte_black"  mesh="body_v3" class="visual" group="4"/>
         <geom type="mesh" material="metal_silver" mesh="body_v4" class="visual" group="4"/>
-        <geom type="mesh" material="matte_black"  mesh="body_v5" class="visual" group="4"/>
+        <geom name="shoulder_bridge" type="mesh" material="matte_black" mesh="body_v5" class="visual"/>
 
         <!-- v1.0 — torso_column: single slim pillar, base to shoulders.
              Extended DOWN to world z=0.35 (touches waist_accent ring) so there
@@ -245,19 +254,22 @@
         <geom name="torso_band"   type="box" size="0.045 0.055 0.012"
               pos="0 0 0.680" material="body_mat"/>
 
-        <!-- v0.9 FIX ② — head_cam moved from body_v1 fascia (local +y, faced
-             world -x = arm-span axis) to body_v4 fascia (local -x, faces
-             world -y). That is the robot's actual front (perpendicular to
-             the arm-span axis).
-             Housing cylinder axis rotated 90° around local y so its barrel
-             points along local x = world y.                                -->
+        <!-- v1.1 FIX — head_cam relocated from hip level (local z=0.020,
+             world z=0.57) to the shoulder-bridge forward face (local
+             z=0.680, world z=1.230). The hip position left the camera
+             housing floating in the side profile because its host fascia
+             (body_v4) is hidden; at head level the housing is flush with
+             the visible body_v5 yoke.
+             Local frame has a 90°Z quat so local -x → world -y (forward).
+             Housing barrel rotated 90° around local y: cylinder axis is
+             local +x → world +y (camera looks along world -y, forward). -->
         <geom name="head_cam_housing" type="cylinder" size="0.020 0.015"
-              pos="-0.115 0 0.020" quat="0.7071068 0 0.7071068 0"
+              pos="-0.070 0 0.680" quat="0.7071068 0 0.7071068 0"
               material="matte_black"/>
         <geom name="head_cam_lens"    type="cylinder" size="0.010 0.004"
-              pos="-0.132 0 0.020" quat="0.7071068 0 0.7071068 0"
+              pos="-0.090 0 0.680" quat="0.7071068 0 0.7071068 0"
               material="metal_silver"/>
-        <site name="head_cam"  pos="-0.140 0 0.020" size="0.006" rgba="0 1 1 0.8"/>
+        <site name="head_cam"  pos="-0.095 0 0.680" size="0.006" rgba="0 1 1 0.8"/>
 
         <!-- =================== LEFT ARM (verbatim from openarm_bimanual.xml) =================== -->
         <body name="openarm_left_link0" pos="0.0 0.031 0.698"

@@ -1,17 +1,21 @@
 """VNR-WH1 design invariants — Playwright-equivalent automated review.
 
-Validates v1.0 design contract after every edit:
+Validates the v1.1 design contract after every edit:
   - Gripper world z clears base top by >= 0.30 m at rest pose.
   - Shoulder world z lies within 1.20..1.30 m (workstation humanoid spec).
-  - ALL native OpenArm body_link0 meshes (body_v0..v5) are hidden (group=4).
-    v1.0 replaced the native bridge/fascia with torso_column + head_cam
-    primitives; any mesh leaking back into the scene means a regression.
-  - torso_column + torso_band geoms exist (the slim pillar + brand band).
+  - VISIBLE: body_v5 (native OpenArm shoulder-bridge yoke) MUST be visible
+    — it is the branded joint connector between the two arm mounts. Its
+    world aabb center must sit at shoulder height (z > 1.10).
+  - HIDDEN: body_v0..v4 MUST be hidden (group=4) — hip/waist fasteners
+    and internal backbone, superseded by torso_column.
+  - torso_column + torso_band geoms exist (slim pillar + brand band).
   - head_cam site + head_cam_housing + head_cam_lens geoms exist.
-  - Silhouette continuity: centerline corridor |x|<0.06, |y|<0.06 has at
-    least one geom at every 5 cm slice from world z=0.30 to z=1.20.
-  - head_cam faces perpendicular to the arm-span axis (camera direction is
-    the forward axis, not the lateral arm-span axis).
+  - head_cam anchoring: head_cam_housing world z in [1.15, 1.30] AND
+    within 0.05 m of body_v5 world aabb (catches the v1.0 regression
+    where head_cam was stuck at hip level, floating free on the side).
+  - Silhouette continuity: centerline corridor |x|<0.06, |y|<0.06 has
+    at least one geom at every 5 cm slice from world z=0.30 to z=1.20.
+  - head_cam faces perpendicular to the arm-span axis.
   - No self-collisions at rest (only wheel<->floor contacts allowed).
 
 Run:  python3 examples/visual_test.py
@@ -25,11 +29,13 @@ XML  = os.path.join(ROOT, "vnr_wh1", "vnr_wh1.xml")
 BASE_TOP_Z      = 0.30
 GRIPPER_MIN_CLR = 0.30
 SHOULDER_RANGE  = (1.20, 1.30)
-# v1.0: all native body_link0 meshes must be hidden.
-HIDDEN_NATIVE   = ("body_v0", "body_v1", "body_v2", "body_v3", "body_v4", "body_v5")
+HIDDEN_NATIVE   = ("body_v0", "body_v1", "body_v2", "body_v3", "body_v4")
+VISIBLE_BRIDGE  = "body_v5"
 REQUIRED_BOXES  = ("torso_column", "torso_band")
 CAM_GEOMS       = ("head_cam_housing", "head_cam_lens")
 CAM_SITE        = "head_cam"
+CAM_Z_RANGE     = (1.15, 1.30)    # head cam must be at head level
+CAM_BRIDGE_SLOP = 0.05            # max distance from body_v5 aabb
 
 def fail(msg):
     print(f"FAIL  {msg}"); sys.exit(1)
@@ -44,10 +50,6 @@ def body_z(name):
     bid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, name)
     if bid < 0: fail(f"body missing: {name}")
     return float(d.xpos[bid, 2])
-
-def geom_group(name):
-    gid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, name)
-    return None if gid < 0 else int(m.geom_group[gid])
 
 # 1. Kinematic heights
 sh_l = body_z("openarm_left_link0")
@@ -64,9 +66,9 @@ if min(clr_l, clr_r) < GRIPPER_MIN_CLR:
     fail(f"gripper clearance too small: L={clr_l:.3f} R={clr_r:.3f} (need >= {GRIPPER_MIN_CLR})")
 ok(f"gripper clearance: L={clr_l:.3f}m  R={clr_r:.3f}m  (base_top={BASE_TOP_Z})")
 
-# 2. Visibility contract — all native body_link0 meshes MUST be hidden
-#    (group=4) in v1.0. torso_column + torso_band provide the visible body.
-native_seen = set()
+# 2. Visibility contract: v0..v4 hidden; v5 visible and at shoulder height.
+bridge_gid, bridge_aabb = None, None
+hidden_seen = set()
 for gid in range(m.ngeom):
     if m.geom_type[gid] != mujoco.mjtGeom.mjGEOM_MESH: continue
     mesh_id = m.geom_dataid[gid]
@@ -75,16 +77,35 @@ for gid in range(m.ngeom):
     grp = int(m.geom_group[gid])
     if mesh_name in HIDDEN_NATIVE:
         if grp != 4:
-            fail(f"native body mesh {mesh_name} must be hidden (group=4) but is group={grp}")
-        native_seen.add(mesh_name)
-missing = set(HIDDEN_NATIVE) - native_seen
-if missing: fail(f"native body meshes missing from model: {missing}")
-ok(f"all native body meshes hidden: {sorted(native_seen)}")
+            fail(f"native hip mesh {mesh_name} must be hidden (group=4) but is group={grp}")
+        hidden_seen.add(mesh_name)
+    elif mesh_name == VISIBLE_BRIDGE:
+        if grp == 4:
+            fail(f"{VISIBLE_BRIDGE} must be VISIBLE but is hidden (group=4)")
+        bridge_gid = gid
+missing_hidden = set(HIDDEN_NATIVE) - hidden_seen
+if missing_hidden: fail(f"native hip meshes missing from model: {missing_hidden}")
+if bridge_gid is None: fail(f"{VISIBLE_BRIDGE} geom not found")
+ok(f"native hip meshes hidden: {sorted(hidden_seen)}")
+
+# compute body_v5 world aabb from its mesh verts + geom transform
+bmesh_id = m.geom_dataid[bridge_gid]
+va = m.mesh_vertadr[bmesh_id]; vn = m.mesh_vertnum[bmesh_id]
+verts_local = m.mesh_vert[va:va+vn]                          # (N,3) in mesh space
+xmat = d.geom_xmat[bridge_gid].reshape(3, 3)
+xpos = d.geom_xpos[bridge_gid]
+verts_world = (xmat @ verts_local.T).T + xpos                # (N,3)
+bridge_aabb = (verts_world.min(axis=0), verts_world.max(axis=0))
+bridge_center_z = 0.5 * (bridge_aabb[0][2] + bridge_aabb[1][2])
+if bridge_center_z < 1.10:
+    fail(f"{VISIBLE_BRIDGE} center z={bridge_center_z:.3f} is not at shoulder level (>=1.10)")
+ok(f"{VISIBLE_BRIDGE} visible at shoulder: center_z={bridge_center_z:.3f} "
+   f"aabb_y=[{bridge_aabb[0][1]:+.3f},{bridge_aabb[1][1]:+.3f}]")
 
 for gname in REQUIRED_BOXES:
     if mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, gname) < 0:
-        fail(f"required v1.0 primitive missing: {gname}")
-ok(f"v1.0 primitives present: {REQUIRED_BOXES}")
+        fail(f"required primitive missing: {gname}")
+ok(f"primitives present: {REQUIRED_BOXES}")
 
 # 3. Camera hardware present
 for gname in CAM_GEOMS:
@@ -95,16 +116,29 @@ if mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SITE, CAM_SITE) < 0:
     fail(f"camera site missing: {CAM_SITE}")
 ok(f"camera site present: {CAM_SITE}")
 
+# 3b. head_cam must be at head level AND anchored to body_v5 (catches
+#     "floating camera on the side profile" regression from v1.0).
+cam_gid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "head_cam_housing")
+cam_world = d.geom_xpos[cam_gid]
+if not (CAM_Z_RANGE[0] <= cam_world[2] <= CAM_Z_RANGE[1]):
+    fail(f"head_cam_housing world z={cam_world[2]:.3f} outside head band {CAM_Z_RANGE} "
+         f"— looks like it is anchored at hip level")
+lo, hi = bridge_aabb
+dx = max(lo[0]-cam_world[0], 0.0, cam_world[0]-hi[0])
+dy = max(lo[1]-cam_world[1], 0.0, cam_world[1]-hi[1])
+dz = max(lo[2]-cam_world[2], 0.0, cam_world[2]-hi[2])
+dist = float(np.sqrt(dx*dx + dy*dy + dz*dz))
+if dist > CAM_BRIDGE_SLOP:
+    fail(f"head_cam_housing floats {dist*1000:.0f}mm away from {VISIBLE_BRIDGE} aabb "
+         f"(slop={CAM_BRIDGE_SLOP*1000:.0f}mm). Camera will appear disconnected in side views.")
+ok(f"head_cam anchored to {VISIBLE_BRIDGE}: world_z={cam_world[2]:.3f} "
+   f"aabb_dist={dist*1000:.0f}mm")
+
 # 4. Silhouette continuity — no empty column between base and shoulders.
 #    Ray-sample vertical slices at world z = 0.30..1.20 every 5 cm. At each z,
-#    verify at least one geom (visual class, group != 4) is present in the
-#    centerline corridor |x|<0.06, |y|<0.06. Catches "floating shoulders".
+#    verify at least one axis-aligned box/cylinder geom (visual, group != 4)
+#    covers the centerline corridor |x|<0.06, |y|<0.06.
 def sample_corridor_hit(z):
-    # For every visual/collision mesh/box geom owned by base or openarm_body_link0
-    # sub-tree, check if any has world aabb containing a point in corridor.
-    # Simplification: test box/cylinder geoms that are axis-aligned to world z
-    # (our added primitives are); skip meshes (we trust body_link0 meshes by
-    # visibility contract already verified above).
     for gid in range(m.ngeom):
         if int(m.geom_group[gid]) == 4: continue
         if m.geom_type[gid] not in (mujoco.mjtGeom.mjGEOM_BOX,
@@ -112,16 +146,13 @@ def sample_corridor_hit(z):
         px, py, pz = d.geom_xpos[gid]
         sx, sy, sz = m.geom_size[gid]
         if m.geom_type[gid] == mujoco.mjtGeom.mjGEOM_CYLINDER:
-            # cylinder size = (radius, half_height, _)
             if abs(pz - z) > sy: continue
             if (px ** 2 + py ** 2) > sx ** 2: continue
-            # check corridor overlap: disc of radius sx centered at (px,py)
             dx = max(0.0, abs(px) - 0.06)
             dy = max(0.0, abs(py) - 0.06)
             if dx * dx + dy * dy <= sx * sx:
                 return mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, gid)
         else:
-            # axis-aligned box
             if abs(pz - z) > sz: continue
             if abs(px) > sx + 0.06 or abs(py) > sy + 0.06: continue
             return mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, gid)
@@ -137,12 +168,8 @@ if missing_slices:
     fail(f"silhouette gap: no geom in centerline corridor at world z = {missing_slices}")
 ok(f"silhouette continuous z=0.30..1.20 ({len(z_vals)} slices, corridor |x|,|y|<0.06)")
 
-# 5. Camera orientation — head_cam must not look along the arm-span axis.
-#    In our model arm-span is world x (shoulders at world x=±0.031). The
-#    head_cam housing cylinder's world axis determines the camera direction.
-cam_gid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "head_cam_housing")
-if cam_gid < 0: fail("head_cam_housing missing")
-cam_axis_world = d.geom_xmat[cam_gid].reshape(3, 3) @ np.array([0, 0, 1.0])  # local +z = cyl axis
+# 5. Camera orientation — head_cam must not look along the arm-span axis (world X).
+cam_axis_world = d.geom_xmat[cam_gid].reshape(3, 3) @ np.array([0, 0, 1.0])
 cam_axis_world /= np.linalg.norm(cam_axis_world) + 1e-9
 if abs(cam_axis_world[0]) > abs(cam_axis_world[1]):
     fail(f"head_cam axis mostly along world X (arm-span): {cam_axis_world}")
@@ -161,4 +188,4 @@ for i in range(d.ncon):
 if bad: fail(f"self-collisions at rest: {bad}")
 ok(f"no self-collisions at rest ({d.ncon} floor contacts only)")
 
-print("\nAll invariants hold. v1.0 design contract OK.")
+print("\nAll invariants hold. v1.1 design contract OK.")
