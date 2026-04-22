@@ -1,5 +1,5 @@
 <!-- VNR-WH1 — VnRobo Wheeled Humanoid 1
-     Version: 0.5.0-bimanual
+     Version: 0.6.0-polish
      DOF: 21 (3 wheels + 2 head + 7L + 7R + 2 grippers)
      v0.5: OpenArm bimanual body_link0 + both arms verbatim from enactic/openarm_mujoco
        - Slim vertical pole replaces crude capsule torso/chest
@@ -77,9 +77,9 @@
     <texture name="grid" type="2d" builtin="checker" rgb1="0.8 0.8 0.8" rgb2="0.6 0.6 0.6"
              width="512" height="512"/>
     <material name="floor_mat"       texture="grid" texrepeat="4 4" reflectance="0.2"/>
-    <material name="dark_mat"        rgba="0.15 0.15 0.15 1"/>
+    <material name="dark_mat"        rgba="0.20 0.20 0.22 1" reflectance="0.08"/>
     <material name="body_mat"        rgba="0.95 0.62 0.10 1"/>
-    <material name="matte_black"     rgba="0.247 0.247 0.247 1" reflectance="0.05" shininess="0.5"/>
+    <material name="matte_black"     rgba="0.28 0.28 0.30 1" reflectance="0.08" shininess="0.3"/>
     <material name="metal_silver"    rgba="0.796 0.796 0.796 1" reflectance="1.0"  shininess="1.0"/>
     <material name="default_material" rgba="0.7 0.7 0.7 1"/>
 
@@ -150,8 +150,9 @@
   <!-- WORLD                                                            -->
   <!-- =============================================================== -->
   <worldbody>
-    <light name="sky"  pos="0 0 5"  dir="0 0 -1"  diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" castshadow="false"/>
-    <light name="fill" pos="2 -2 3" dir="-1 1 -1" diffuse="0.3 0.3 0.4" specular="0 0 0"       castshadow="false"/>
+    <light name="sky"   pos="0 0 6"   dir="0 0 -1"    ambient="0.25 0.25 0.25" diffuse="1.0 1.0 1.0" specular="0.3 0.3 0.3" castshadow="false"/>
+    <light name="fill"  pos="3 -3 4"  dir="-1 1 -1"  ambient="0.10 0.10 0.10" diffuse="0.5 0.5 0.6" specular="0 0 0"         castshadow="false"/>
+    <light name="front" pos="0 6 3"   dir="0 -1 -0.4" ambient="0.10 0.10 0.10" diffuse="0.6 0.6 0.6" specular="0.15 0.15 0.15" castshadow="false"/>
     <geom name="floor" type="plane" size="8 8 0.1" material="floor_mat" condim="3"/>
 
     <!-- ======================== BASE PLATFORM ======================== -->
@@ -159,7 +160,7 @@
     <body name="base" pos="0 0 0.20">
       <freejoint name="root"/>
       <geom name="base_geom" type="cylinder" size="0.28 0.10" material="dark_mat" mass="22"/>
-      <site name="base_front" pos="0 0.26 0.11" size="0.025" rgba="0.9 0.2 0.2 1"/>
+      <site name="base_front" pos="0 0.26 0.11" size="0.025" rgba="0.9 0.2 0.2 0"/>
       <site name="imu" pos="0 0 0" size="0.01"/>
 
       <!-- 3× omni wheels (bottom at z=0.10-0.08=0.02 ≈ floor) -->
@@ -187,6 +188,9 @@
         <inertial pos="0 0 0.30" mass="4.0" diaginertia="0.10 0.10 0.002"/>
         <geom name="pole_geom" type="cylinder" size="0.035 0.30"
               pos="0 0 0.30" material="dark_mat"/>
+        <!-- Pole-to-torso flange: visual bridge between slim pole and wider waist -->
+        <geom name="pole_top_flange" type="cylinder" size="0.060 0.022"
+              pos="0 0 0.582" material="dark_mat"/>
 
         <!-- =================== OPENARM BIMANUAL ASSEMBLY =================
              body_link0 = shared back-plate with 6 visual mesh parts
@@ -198,12 +202,28 @@
           <inertial pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" mass="13.89"
                     diaginertia="1.653 1.653 0.051"/>
           <geom type="mesh" mesh="body_col" class="collision"/>
-          <geom type="mesh" material="matte_black"  mesh="body_v0" class="visual"/>
-          <geom type="mesh" material="metal_silver" mesh="body_v1" class="visual"/>
-          <geom type="mesh" material="matte_black"  mesh="body_v2" class="visual"/>
-          <geom type="mesh" material="matte_black"  mesh="body_v3" class="visual"/>
-          <geom type="mesh" material="metal_silver" mesh="body_v4" class="visual"/>
-          <geom type="mesh" material="matte_black"  mesh="body_v5" class="visual"/>
+          <!-- body_v* meshes hidden (group=4) — replaced by compact torso_cover box -->
+          <geom type="mesh" mesh="body_v0" class="visual" group="4"/>
+          <geom type="mesh" mesh="body_v1" class="visual" group="4"/>
+          <geom type="mesh" mesh="body_v2" class="visual" group="4"/>
+          <geom type="mesh" mesh="body_v3" class="visual" group="4"/>
+          <geom type="mesh" mesh="body_v4" class="visual" group="4"/>
+          <geom type="mesh" mesh="body_v5" class="visual" group="4"/>
+          <!-- === TORSO: continuous body — waist → chest → shoulder yoke ===
+               body_link0 LOCAL frame: X=world-depth(Y), Y=world-width(X), Z=world-up
+               Front camera (az=90) looks from world +X → sees local Y axis spread -->
+          <geom name="waist" type="box" size="0.038 0.080 0.080"
+                pos="0 0 0.120" material="dark_mat" class="visual"/>
+          <geom name="chest" type="box" size="0.050 0.130 0.228"
+                pos="0 0 0.428" material="dark_mat" class="visual"/>
+          <!-- Shoulder yoke: horizontal bar at arm attachment height (z=0.698) -->
+          <geom name="shoulder_yoke" type="box" size="0.042 0.155 0.038"
+                pos="0 0 0.698" material="dark_mat" class="visual"/>
+          <!-- Shoulder caps: disk at each arm junction, visible as circles from front camera -->
+          <geom name="shoulder_cap_l" type="cylinder" size="0.048 0.022"
+                pos="0 0.031 0.698" zaxis="0 1 0" material="matte_black" class="visual"/>
+          <geom name="shoulder_cap_r" type="cylinder" size="0.048 0.022"
+                pos="0 -0.031 0.698" zaxis="0 1 0" material="matte_black" class="visual"/>
 
           <!-- HEAD: cancel parent 90°Z so head faces +Y, joints work in world frame -->
           <body name="head_pan_link" pos="0 0 0.76" quat="0.7071068 0 0 -0.7071068">
@@ -211,11 +231,22 @@
             <geom type="cylinder" size="0.042 0.040" material="dark_mat" mass="0.2"/>
             <body name="head" pos="0 0 0.06">
               <joint name="head_tilt" class="head" axis="0 1 0" range="-0.52 0.52"/>
-              <geom name="head_geom" type="box" size="0.11 0.09 0.12" material="body_mat" mass="1.5"/>
-              <geom name="face_plate" type="box" size="0.09 0.01 0.07"
-                    pos="0 0.09 0.01" rgba="0.2 0.2 0.2 1" mass="0"/>
-              <site name="cam_rgb"   pos="0 0.10  0.02" size="0.018" rgba="0.1 0.5 0.9 1"/>
-              <site name="cam_depth" pos="0 0.10 -0.02" size="0.018" rgba="0.9 0.3 0.1 1"/>
+              <!-- Ellipsoid head: organic shape w=14cm d=16cm h=15cm
+                   head frame is world-aligned (head_pan_link cancels body_link0 rotation)
+                   local X = world X = front camera direction (az=90 camera at +X looking -X)
+                   Features at local +X are visible as the "face" from front camera -->
+              <geom name="head_geom" type="ellipsoid" size="0.080 0.070 0.075"
+                    material="matte_black" mass="1.5"/>
+              <!-- Cyan LED visor: bright horizontal strip on face (local -X face = near side for az=90 camera)
+                   az=90 camera sits at world -X looking toward +X → near face is world -X = local -X -->
+              <geom name="head_visor" type="box" size="0.012 0.058 0.014"
+                    pos="-0.072 0 0.003" rgba="0.10 0.82 1.00 1.0" mass="0"/>
+              <!-- Orange brand stripe: forehead accent above visor -->
+              <geom name="head_stripe" type="box" size="0.010 0.040 0.009"
+                    pos="-0.072 0 0.042" material="body_mat" mass="0"/>
+              <!-- Stereo camera sites on visor face -->
+              <site name="cam_rgb"   pos="-0.080  0.022 0.003" size="0.010" rgba="0.1 0.5 1.0 1"/>
+              <site name="cam_depth" pos="-0.080 -0.022 0.003" size="0.010" rgba="1.0 0.35 0.1 1"/>
             </body>
           </body>
 

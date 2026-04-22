@@ -13,11 +13,12 @@ mujoco.mj_resetData(model, data)
 
 # OpenArm 7-DOF rest pose
 rest = {
-    "l_j1":  0.3, "l_j2":  0.0, "l_j3":  0.3, "l_j4": 1.2,
-    "l_j5":  0.0, "l_j6":  0.2, "l_j7":  0.0,
-    "r_j1": -0.3, "r_j2":  0.0, "r_j3": -0.3, "r_j4": 1.2,
-    "r_j5":  0.0, "r_j6":  0.2, "r_j7":  0.0,
-    "head_tilt": 0.1,
+    # Natural rest: all joints at zero → arms hang symmetrically at sides
+    "l_j1": 0.0, "l_j2": 0.0, "l_j3": 0.0, "l_j4": 0.0,
+    "l_j5": 0.0, "l_j6": 0.0, "l_j7": 0.0,
+    "r_j1": 0.0, "r_j2": 0.0, "r_j3": 0.0, "r_j4": 0.0,
+    "r_j5": 0.0, "r_j6": 0.0, "r_j7": 0.0,
+    "head_tilt": 0.0,
 }
 for name, val in rest.items():
     aid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
@@ -30,11 +31,13 @@ for _ in range(400):
 renderer = mujoco.Renderer(model, height=720, width=720)
 
 # (azimuth_deg, elevation_deg, distance)
+# azimuth=0  → camera at world +Y looking -Y → sees robot face (visor/stripe facing this direction)
+# azimuth=90 → camera at world -X looking +X → sees arm span width
 cameras = [
-    ("front",    90,  -15, 2.8),
-    ("side",      0,  -15, 2.8),
-    ("iso",      45,  -20, 3.2),
-    ("top",      90,  -80, 3.5),
+    ("front",     0,  -8, 3.5),   # face view: visor + orange stripe visible
+    ("arm_span", 90,  -8, 3.5),   # side view: shows arm spread and wide chest
+    ("iso",      30, -14, 4.2),   # 3/4 front-face ISO
+    ("top",      90, -88, 4.5),
 ]
 
 out_dir = "/tmp/vnr_wh1_screenshots"
@@ -43,7 +46,7 @@ os.makedirs(out_dir, exist_ok=True)
 for cam_name, azimuth, elevation, distance in cameras:
     cam = mujoco.MjvCamera()
     cam.type = mujoco.mjtCamera.mjCAMERA_FREE
-    cam.lookat[:] = [0, 0, 0.75]   # look at torso center
+    cam.lookat[:] = [0, 0, 1.05]   # look at torso center
     cam.distance  = distance
     cam.azimuth   = azimuth
     cam.elevation = elevation
