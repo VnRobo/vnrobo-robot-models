@@ -1,23 +1,24 @@
 <!-- VNR-WH1 — VnRobo Wheeled Humanoid 1
-     Version: 0.9.0-fill
+     Version: 1.0.0-clean
      DOF: 19 (3 wheels + 7L + 7R + 2 grippers)
 
-     v0.9 (fills v0.8 bugs exposed by 2D ortho review):
-       ① torso_column — box inside openarm_body_link0 closing the 0.55 m air
-         pocket between body_v1/v4/v5 top (world z=0.70) and shoulder (z=1.25).
-       ② head_cam relocated from body_v1 fascia to body_v4 fascia. Previously
-         the lens pointed along world -x which coincides with the arm-span axis;
-         now it points along world -y, perpendicular to arm span — the correct
-         "forward" direction for a bimanual humanoid.
+     v1.0 — clean silhouette (supersedes v0.9):
+       - Removed torso_chest + torso_accent (chunky matte-black pedestal +
+         orange stripe above the waist ring — looked like a bolt-on chest plate).
+       - Hid ALL native OpenArm body_link0 meshes (body_v0..v5 → group=4). They
+         carried a triangular shoulder bracket and bolt-hole fascia that read
+         as "extra steel plates" on a clean humanoid design.
+       - torso_column extended down to world z=0.33 so it rises directly from
+         the orange brand band — no intermediate pedestal, just a slim 0.10 ×
+         0.08 m pillar from base to shoulders.
+       - head_cam, torso_band, arms unchanged — proven from v0.9.
 
      Stack, world z:
        0.00–0.30   wheeled base (cylinder r=0.30)
        0.30–0.33   waist collar disc  (r=0.205)
        0.33–0.35   waist accent ring  (r=0.215, orange — brand band)
-       0.35–0.53   torso chest box    (0.22 × 0.14 × 0.18)
-       0.46–0.70   body_link0 meshes  (native OpenArm bridge; overlaps chest)
-       0.50–1.25   torso_column       (v0.9 NEW — 0.10 × 0.08 × 0.75 slim spine)
-       1.22–1.24   orange brand band  (v0.9 NEW — top of torso_column)
+       0.33–1.25   torso_column       (0.10 × 0.08 × 0.92 slim pillar)
+       1.22–1.24   torso_band         (orange accent at shoulder line)
        1.25        shoulder (arms emerge from body_link0 at local z=0.698)
 -->
 <mujoco model="vnr_wh1">
@@ -189,23 +190,19 @@
         <geom type="cylinder" size="0.055 0.039" zaxis="0.5 0.866 0" material="body_mat" mass="0"/>
       </body>
 
-      <!-- ==================== MOUNT BRACKET v0.8 ====================
-           Adapter: base top (world z=0.30) → body_link0 base (world z=0.53).
-           Three elements (world-aligned; local offsets from base center z=0.20):
-             1. waist_collar  → short wide disc crowning the base
-             2. waist_accent  → orange brand ring
-             3. torso_chest   → rounded chest-plate box, ties waist to body_link0
-           body_link0 visual meshes (v1 + v4 + v5) handle the shoulder bridge;
-           no top flange / yoke needed (those were redundant in v0.7).
+      <!-- ==================== MOUNT CAP v1.0 ====================
+           Minimal adapter: base top → torso_column base. v0.9 had a chunky
+           torso_chest box + accent stripe that made the junction look like a
+           bolt-on steel pedestal. v1.0 drops both — torso_column (inside
+           openarm_body_link0) runs straight from the orange brand ring all
+           the way up to the shoulders. Cleaner, humanoid neckline.
+             1. waist_collar  → short wide dark disc crowning the base
+             2. waist_accent  → orange brand ring (top of adapter)
       -->
       <geom name="waist_collar" type="cylinder" size="0.205 0.015"
             pos="0 0 0.115" material="dark_mat"/>
       <geom name="waist_accent" type="cylinder" size="0.215 0.010"
             pos="0 0 0.140" material="body_mat"/>
-      <geom name="torso_chest"  type="box" size="0.110 0.070 0.090"
-            pos="0 0 0.240" material="matte_black"/>
-      <geom name="torso_accent" type="box" size="0.112 0.072 0.006"
-            pos="0 0 0.155" material="body_mat"/>
 
       <!-- ================ OPENARM BIMANUAL ASSEMBLY ================
            body_link0 = kinematic parent of both arms (OpenArm verbatim chains).
@@ -221,24 +218,30 @@
         <inertial pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" mass="13.89"
                   diaginertia="1.653 1.653 0.051"/>
         <geom type="mesh" mesh="body_col" class="collision"/>
+        <!-- v1.0: all native OpenArm body_link0 visual meshes are hidden
+             (group=4). They carried the triangular shoulder bracket, bolt-hole
+             fascia, and internal backbone — all superseded by our clean
+             torso_column + head_cam primitives below.                     -->
         <geom type="mesh" material="matte_black"  mesh="body_v0" class="visual" group="4"/>
-        <geom type="mesh" material="matte_black"  mesh="body_v1" class="visual"/>
+        <geom type="mesh" material="matte_black"  mesh="body_v1" class="visual" group="4"/>
         <geom type="mesh" material="matte_black"  mesh="body_v2" class="visual" group="4"/>
         <geom type="mesh" material="matte_black"  mesh="body_v3" class="visual" group="4"/>
-        <geom type="mesh" material="metal_silver" mesh="body_v4" class="visual"/>
-        <geom type="mesh" material="matte_black"  mesh="body_v5" class="visual"/>
+        <geom type="mesh" material="metal_silver" mesh="body_v4" class="visual" group="4"/>
+        <geom type="mesh" material="matte_black"  mesh="body_v5" class="visual" group="4"/>
 
-        <!-- v0.9 FIX ① — torso_column filler (slim neck / spine).
-             Matches the body_link0 bridge neck width — avoids the "box on a
-             stick" look. World footprint 0.10 × 0.08 m, height 0.75 m.
-             Extended down to world z=0.50 so it overlaps torso_chest and the
-             body_link0 meshes — silhouette corridor is continuous to shoulders.
-             Dims (local, pre-rotation): x (→ world y) half=0.040 (depth 0.08)
-                                          y (→ world x) half=0.050 (width 0.10)
-                                          z          half=0.375 (height 0.75)
-             Local pos z=0.325 → world z center = 0.875, spans world z=0.50..1.25 -->
-        <geom name="torso_column" type="box" size="0.040 0.050 0.375"
-              pos="0 0 0.325" material="matte_black"/>
+        <!-- v1.0 — torso_column: single slim pillar, base to shoulders.
+             Extended DOWN to world z=0.35 (touches waist_accent ring) so there
+             is no intermediate chest pedestal — just the clean column rising
+             directly from the orange brand band. Native body_link0 meshes are
+             all hidden (group=4) so the silhouette is purely our primitives.
+             World footprint 0.10 × 0.08 m × 0.92 m tall.
+             Local frame has a 90°Z quat so local x → world y, local y → world x.
+               x half=0.040 → world y half (depth)  = 0.040 (total 0.08)
+               y half=0.050 → world x half (width)  = 0.050 (total 0.10)
+               z half=0.460 →             height    = 0.920
+             Local pos z=0.240 → world z center=0.79, spans world z=0.33..1.25 -->
+        <geom name="torso_column" type="box" size="0.040 0.050 0.460"
+              pos="0 0 0.240" material="matte_black"/>
         <geom name="torso_band"   type="box" size="0.045 0.055 0.012"
               pos="0 0 0.680" material="body_mat"/>
 

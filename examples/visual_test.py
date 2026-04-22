@@ -1,16 +1,17 @@
 """VNR-WH1 design invariants — Playwright-equivalent automated review.
 
-Validates v0.9 design contract after every edit:
+Validates v1.0 design contract after every edit:
   - Gripper world z clears base top by >= 0.30 m at rest pose.
   - Shoulder world z lies within 1.20..1.30 m (workstation humanoid spec).
-  - OpenArm native body_link0 bridge meshes (body_v1, v4, v5) are visible
-    (group != 4). These carry the shoulder bridge + camera bay.
+  - ALL native OpenArm body_link0 meshes (body_v0..v5) are hidden (group=4).
+    v1.0 replaced the native bridge/fascia with torso_column + head_cam
+    primitives; any mesh leaking back into the scene means a regression.
+  - torso_column + torso_band geoms exist (the slim pillar + brand band).
   - head_cam site + head_cam_housing + head_cam_lens geoms exist.
-  - v0.9 NEW: torso_column + torso_band exist and fill the shoulder gap —
-    centerline corridor |x|<0.06, |y|<0.06 has at least one geom at every
-    5 cm slice from world z=0.30 to z=1.20 (no floating shoulders).
-  - v0.9 NEW: head_cam faces perpendicular to the arm-span axis (so the
-    camera does not look along the arm-span direction).
+  - Silhouette continuity: centerline corridor |x|<0.06, |y|<0.06 has at
+    least one geom at every 5 cm slice from world z=0.30 to z=1.20.
+  - head_cam faces perpendicular to the arm-span axis (camera direction is
+    the forward axis, not the lateral arm-span axis).
   - No self-collisions at rest (only wheel<->floor contacts allowed).
 
 Run:  python3 examples/visual_test.py
@@ -24,8 +25,9 @@ XML  = os.path.join(ROOT, "vnr_wh1", "vnr_wh1.xml")
 BASE_TOP_Z      = 0.30
 GRIPPER_MIN_CLR = 0.30
 SHOULDER_RANGE  = (1.20, 1.30)
-VISIBLE_BRIDGE  = ("body_v1", "body_v4", "body_v5")
-HIDDEN_INTERNAL = ("body_v0", "body_v2", "body_v3")
+# v1.0: all native body_link0 meshes must be hidden.
+HIDDEN_NATIVE   = ("body_v0", "body_v1", "body_v2", "body_v3", "body_v4", "body_v5")
+REQUIRED_BOXES  = ("torso_column", "torso_band")
 CAM_GEOMS       = ("head_cam_housing", "head_cam_lens")
 CAM_SITE        = "head_cam"
 
@@ -62,28 +64,27 @@ if min(clr_l, clr_r) < GRIPPER_MIN_CLR:
     fail(f"gripper clearance too small: L={clr_l:.3f} R={clr_r:.3f} (need >= {GRIPPER_MIN_CLR})")
 ok(f"gripper clearance: L={clr_l:.3f}m  R={clr_r:.3f}m  (base_top={BASE_TOP_Z})")
 
-# 2. Visibility contract on body_link0 meshes (geom name = mesh name by MuJoCo
-# default when not renamed). Iterate over all geoms looking for mesh refs.
-vis_seen  = set(); hid_seen = set()
+# 2. Visibility contract — all native body_link0 meshes MUST be hidden
+#    (group=4) in v1.0. torso_column + torso_band provide the visible body.
+native_seen = set()
 for gid in range(m.ngeom):
     if m.geom_type[gid] != mujoco.mjtGeom.mjGEOM_MESH: continue
     mesh_id = m.geom_dataid[gid]
     if mesh_id < 0: continue
     mesh_name = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_MESH, mesh_id)
     grp = int(m.geom_group[gid])
-    if mesh_name in VISIBLE_BRIDGE:
-        if grp == 4: fail(f"bridge mesh {mesh_name} is hidden (group=4)")
-        vis_seen.add(mesh_name)
-    if mesh_name in HIDDEN_INTERNAL:
-        hid_seen.add((mesh_name, grp))
+    if mesh_name in HIDDEN_NATIVE:
+        if grp != 4:
+            fail(f"native body mesh {mesh_name} must be hidden (group=4) but is group={grp}")
+        native_seen.add(mesh_name)
+missing = set(HIDDEN_NATIVE) - native_seen
+if missing: fail(f"native body meshes missing from model: {missing}")
+ok(f"all native body meshes hidden: {sorted(native_seen)}")
 
-missing = set(VISIBLE_BRIDGE) - vis_seen
-if missing: fail(f"bridge meshes missing from model: {missing}")
-ok(f"bridge meshes visible: {sorted(vis_seen)}")
-
-for name, grp in hid_seen:
-    if grp != 4: fail(f"internal mesh {name} should be hidden (group=4) but is group={grp}")
-ok(f"internal meshes hidden: {sorted(n for n,_ in hid_seen)}")
+for gname in REQUIRED_BOXES:
+    if mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, gname) < 0:
+        fail(f"required v1.0 primitive missing: {gname}")
+ok(f"v1.0 primitives present: {REQUIRED_BOXES}")
 
 # 3. Camera hardware present
 for gname in CAM_GEOMS:
@@ -160,4 +161,4 @@ for i in range(d.ncon):
 if bad: fail(f"self-collisions at rest: {bad}")
 ok(f"no self-collisions at rest ({d.ncon} floor contacts only)")
 
-print("\nAll invariants hold. v0.9 design contract OK.")
+print("\nAll invariants hold. v1.0 design contract OK.")
