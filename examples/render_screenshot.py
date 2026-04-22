@@ -18,7 +18,6 @@ rest = {
     "l_j5": 0.0, "l_j6": 0.0, "l_j7": 0.0,
     "r_j1": 0.0, "r_j2": 0.0, "r_j3": 0.0, "r_j4": 0.0,
     "r_j5": 0.0, "r_j6": 0.0, "r_j7": 0.0,
-    "head_tilt": 0.0,
 }
 for name, val in rest.items():
     aid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
@@ -31,13 +30,13 @@ for _ in range(400):
 renderer = mujoco.Renderer(model, height=720, width=720)
 
 # (azimuth_deg, elevation_deg, distance)
-# azimuth=0  → camera at world +Y looking -Y → sees robot face (visor/stripe facing this direction)
-# azimuth=90 → camera at world -X looking +X → sees arm span width
+# body_link0 quat rotates +90° around Z so OpenArm's native fascia (body_v1 +y
+# face) maps to world -X. Use azimuth=180 for the "face" shot.
 cameras = [
-    ("front",     0,  -8, 3.5),   # face view: visor + orange stripe visible
-    ("arm_span", 90,  -8, 3.5),   # side view: shows arm spread and wide chest
-    ("iso",      30, -14, 4.2),   # 3/4 front-face ISO
-    ("top",      90, -88, 4.5),
+    ("front",   180, -12, 2.6),
+    ("arm_span", 90,  -8, 2.6),
+    ("iso",     210, -16, 3.0),
+    ("top",       0, -88, 3.5),
 ]
 
 out_dir = "/tmp/vnr_wh1_screenshots"
@@ -46,7 +45,7 @@ os.makedirs(out_dir, exist_ok=True)
 for cam_name, azimuth, elevation, distance in cameras:
     cam = mujoco.MjvCamera()
     cam.type = mujoco.mjtCamera.mjCAMERA_FREE
-    cam.lookat[:] = [0, 0, 1.05]   # look at torso center
+    cam.lookat[:] = [0, 0, 0.80]   # chest/bridge center for v0.8
     cam.distance  = distance
     cam.azimuth   = azimuth
     cam.elevation = elevation
